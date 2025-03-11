@@ -45,6 +45,7 @@ const icaos = Object.keys(icaodata);
 const zones = require(argv.z);
 const points = [];
 for (const icao of icaos) {
+  console.log(icao);
   zones[icao] = zones[icao].map(([lat, lon]) => [lon, lat]);
   icaodata[icao].msfs = [];
   points.push({lon: icaodata[icao].lon, lat: icaodata[icao].lat, icao: icao});

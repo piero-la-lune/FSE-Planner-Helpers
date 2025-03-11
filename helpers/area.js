@@ -22,6 +22,16 @@ if (!argv.o) {
 }
 
 
+/**
+ * Round half up ('round half towards positive infinity')
+ * Negative numbers round differently than positive numbers.
+ */
+function round(num, decimalPlaces = 0) {
+  num = Math.round(num + "e" + decimalPlaces);
+  return Number(num + "e" + -decimalPlaces);
+}
+
+
 
 const icaodata = require(argv.i);
 
@@ -45,7 +55,7 @@ const zones = {};
 for (const [icao, a] of Object.entries(icaodata)) {
   for (const obj of polygons.features) {
     if (icao === obj.properties.site.properties.name) {
-      zones[icao] = obj.geometry.coordinates[0].map(([lon, lat]) => [lat, fixLon(lon, a.lon)]);
+      zones[icao] = obj.geometry.coordinates[0].map(([lon, lat]) => [round(lat, 4), round(fixLon(lon, a.lon), 4)]);
     }
   }
 }
