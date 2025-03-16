@@ -55,6 +55,7 @@ const tree = new kdTree(points, (a, b) => geolib.getDistance([a.lon, a.lat], [b.
 var surfaces = {
   A: 1,
   B: 1,
+  BR: 2,
   D: 3,
   CE: 2,
   W: 8,
@@ -66,8 +67,12 @@ var surfaces = {
   M: 1,
   SN: 7,
   C: 2,
-  T: 1
+  T: 1,
+  I: 7,
+  UNKNOWN: 1,
+  INVALID: 1
 }
+// https://github.com/albar965/littlenavmap/blob/d0ec26afb673e5b8aec46e58daa568c2d27b551d/src/common/maptypes.cpp#L68
 
 // Load MSFS extract CSV file
 const msfs = [];
@@ -100,6 +105,10 @@ fs.createReadStream(argv.f)
           runway: parseInt(airport.longest_runway_length),
           surface: surfaces[airport.longest_runway_surface]
         });
+        if (!surfaces[airport.longest_runway_surface]) {
+          console.log("Unknown surface "+airport.longest_runway_surface+" for "+airport.ident);
+          process.exit();
+        }
       }
       else {
         const point = {lon: airport.lonx, lat: airport.laty};
@@ -115,12 +124,6 @@ fs.createReadStream(argv.f)
             angle * Math.PI / 180
           ) * nearest[1][1]
         );
-        // if (airport.ident === "LECM") {
-        //   console.log(nearest);
-        //   console.log(dist);
-        //   console.log(dProjected);
-        //   process.exit();
-        // }
         if (dist > 0 && angle < 90 && dProjected < 600 && (dProjected/dist < 0.2)) {
            ignored.push(airport.ident);
         }
