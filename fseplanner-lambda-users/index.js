@@ -1,35 +1,27 @@
 const axios = require('axios');
-const AWS = require('aws-sdk');
-
-AWS.config.update({region: 'eu-west-3'});
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const REGION = 'eu-west-3';
+const s3 = new S3Client({ region: REGION });
 
 exports.handler = async (event) => {
     
-    const instance = axios.create({
-      baseURL: 'https://server.fseconomy.net/'
-    })
-    
     try {
-        let res = await axios.get('https://server.fseconomy.net/score.jsp?type=groups', {
-                responseType: 'arraybuffer',
-                reponseEncoding: 'binary'
-            });
-        const groups = [...res.data.toString('latin1').matchAll(/<tr>\s*<td>(.*)<\/td>/g)].map(elm => elm[1]);
+        let res = await axios.get('https://server.fseconomy.net/scoredata.jsp?type=groups');
+        const groups = [...res.data.data.map(e => e.accountName)];
     
-        res = await axios.get('https://server.fseconomy.net/score.jsp?type=pilots');
-        
-        const pilots = [...res.data.toString('latin1').matchAll(/<tr>\s*<td>(.*)<\/td>/g)].map(elm => elm[1]);
+        res = await axios.get('https://server.fseconomy.net/scoredata.jsp');
+        const pilots = [...res.data.data.map(e => e.accountName)];
     
         const file = JSON.stringify([...groups, ...pilots], null, '  ');
 
-        const s3 = new AWS.S3({apiVersion: '2006-03-01'});
         var uploadParams = {
             Bucket: 'fse-planner-data',
             Key: 'users.json',
             Body: file,
             CacheControl: 'no-cache'
         };
-        const stored = await s3.upload(uploadParams).promise();
+        const command = new PutObjectCommand(uploadParams);
+        const stored = await s3.send(command);
     
         return {
             statusCode: 200,
