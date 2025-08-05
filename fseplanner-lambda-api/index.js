@@ -1,13 +1,14 @@
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, QueryCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const Ajv = require("ajv");
 const { lookUp } = require('./reverse-geocode/lookup');
 const icaodata = require('./icaodata-simplified.json');
 
-AWS.config.update({region: 'eu-west-3'});
+const REGION = 'eu-west-3';
+const ddbClient = new DynamoDBClient({ region: REGION });
+const dbb = DynamoDBDocumentClient.from(ddbClient);
 
-var dbb = new AWS.DynamoDB.DocumentClient();
-
-const ajv = new Ajv()
+const ajv = new Ajv();
 
 const schema = {
   type: "object",
@@ -195,14 +196,14 @@ exports.handler = async function (event, context, callback) {
     let body = '';
 
     if (event.routeKey === 'GET /layer') {
-        const data = await dbb.query({
+        const data = await dbb.send(new QueryCommand({
             TableName: 'fse-layers',
             IndexName: 'sharePublic-index',
             KeyConditionExpression: 'sharePublic = :v',
             ExpressionAttributeValues: {
               ":v": "x"
             }
-        }).promise();
+        }));
         if (!data.Items) {
             return Response(500, {message: 'Internal error'});
         }
@@ -213,12 +214,12 @@ exports.handler = async function (event, context, callback) {
 
     else if (event.routeKey === 'GET /layer/{id}') {
         const id = event.pathParameters.id;
-        const data = await dbb.get({
+        const data = await dbb.send(new GetCommand({
             TableName: 'fse-layers',
             Key: {
                 id: id
             }
-        }).promise();
+        }));
         if (!data.Item) {
             return Response(404, {message: 'Not found'});
         }
@@ -246,7 +247,7 @@ exports.handler = async function (event, context, callback) {
           return Response(400, {message: 'Bad request'});
         }
         body.info.display.location = getLocation(body.info);
-        await dbb.put({
+        await dbb.send(new PutCommand({
             TableName: 'fse-layers',
             Item: {
                 id: id,
@@ -254,7 +255,7 @@ exports.handler = async function (event, context, callback) {
                 info: body.info,
                 editId: editId
             }
-        }).promise();
+        }));
         return Response(200, {id: id, editId: editId});
     }
 
@@ -269,12 +270,12 @@ exports.handler = async function (event, context, callback) {
         if (!body.editId || !body.version || !/^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+)?$/.test(body.version) || !body.info || typeof body.info !== "object") {
             return Response(400, {message: 'Bad request'});
         }
-        let data = await dbb.get({
+        let data = await dbb.send(new GetCommand({
             TableName: 'fse-layers',
             Key: {
                 id: id
             }
-        }).promise();
+        }));
         if (!data.Item) {
             return Response(404, {message: 'Not found'});
         }
@@ -287,7 +288,7 @@ exports.handler = async function (event, context, callback) {
           return Response(400, {message: 'Bad request'});
         }
         body.info.display.location = getLocation(body.info);
-        data = await dbb.put({
+        await dbb.send(new PutCommand({
             TableName: 'fse-layers',
             Item: {
                 id: id,
@@ -296,7 +297,7 @@ exports.handler = async function (event, context, callback) {
                 editId: body.editId,
                 sharePublic: data.Item.sharePublic
             }
-        }).promise();
+        }));
         return Response(200, {id: id, editId: body.editId});
     }
 
@@ -311,12 +312,12 @@ exports.handler = async function (event, context, callback) {
         if (!body.editId) {
             return Response(400, {message: 'Bad request'});
         }
-        let data = await dbb.get({
+        let data = await dbb.send(new GetCommand({
             TableName: 'fse-layers',
             Key: {
                 id: id
             }
-        }).promise();
+        }));
         if (!data.Item) {
             return Response(404, {message: 'Not found'});
         }
@@ -324,10 +325,10 @@ exports.handler = async function (event, context, callback) {
             return Response(403, {message: 'Unauthorized'});
         }
         data.Item.sharePublic = 'x';
-        data = await dbb.put({
+        await dbb.send(new PutCommand({
             TableName: 'fse-layers',
             Item: data.Item
-        }).promise();
+        }));
         return Response(200, {id: id, editId: body.editId});
     }
 

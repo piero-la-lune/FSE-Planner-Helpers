@@ -1,7 +1,7 @@
 const axios = require('axios');
-const AWS = require('aws-sdk');
-
-AWS.config.update({region: 'eu-west-3'});
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const REGION = 'eu-west-3';
+const s3 = new S3Client({ region: REGION });
 
 exports.handler = async (event) => {
     
@@ -36,14 +36,14 @@ exports.handler = async (event) => {
         const match = [...res.data.toString('latin1').matchAll(/<tr>.*?updateMapFbo\('(.*?)'\).*?\$([0-9,]+).*?<\/tr>/gs)];
         const forSale = match.map(elm => [elm[1], parseInt(elm[2].replace(/,/g, ''))]);
 
-        const s3 = new AWS.S3({apiVersion: '2006-03-01'});
         var uploadParams = {
             Bucket: 'fse-planner-data',
             Key: 'forsale.json',
             Body: JSON.stringify(forSale, null, '  '),
             CacheControl: 'no-cache'
         };
-        const stored = await s3.upload(uploadParams).promise();
+        const command = new PutObjectCommand(uploadParams);
+        const stored = await s3.send(command);
     
         return {
             statusCode: 200,
